@@ -8,7 +8,7 @@ import kotlinx.coroutines.launch
 
 data class SensorData(
     val accelerometer: List<Float> = listOf(0f, 0f, 0f),
-    val magnetometer: List<Float> = listOf(0f, 0f, 0f),
+    val gyroscope: List<Float> = listOf(0f, 0f, 0f),
     val gps: Pair<Double, Double> = Pair(0.0, 0.0)
 )
 
@@ -23,7 +23,12 @@ class SensorViewModel(private val repository: SensorRepository) : ViewModel() {
     val allSensorData = repository.allSensorData
     val measurementComplete = repository.measurementComplete
 
-    fun startMeasurement() {
+    private var walkingStyle: String = ""
+    private var walkingState: String = ""
+
+    fun startMeasurement(style: String, state: String) {
+        walkingStyle = style
+        walkingState = state
         _measurementStatus.value = MeasurementStatus.MEASURING
         repository.startMeasurement()
         viewModelScope.launch {
@@ -35,8 +40,9 @@ class SensorViewModel(private val repository: SensorRepository) : ViewModel() {
         }
     }
 
-    fun saveData() {
-        repository.saveDataToCSV()
+    fun saveData(stepCount: String) {
+        val fileName = "${walkingStyle}_${walkingState}_${stepCount}걸음"
+        repository.saveDataToCSV(fileName)
         resetMeasurement()
     }
 
@@ -48,6 +54,8 @@ class SensorViewModel(private val repository: SensorRepository) : ViewModel() {
     fun resetMeasurement() {
         _measurementStatus.value = MeasurementStatus.WAITING
         _currentSensorData.value = SensorData()
+        walkingStyle = ""
+        walkingState = ""
         repository.resetMeasurement()
     }
 }
