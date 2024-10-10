@@ -96,9 +96,19 @@ fun SensorDataScreen(viewModel: SensorViewModel) {
             MeasurementStatus.MEASURING -> {
                 Text("측정 중...")
                 Text("현재 데이터:")
-                Text("가속도계: ${currentSensorData.accelerometer}")
-                Text("자이로스코프: ${currentSensorData.gyroscope}")
+                Text("가속도계: ${currentSensorData.accelerometer.joinToString(", ")}")
+                Text("자이로스코프: ${currentSensorData.gyroscope.joinToString(", ")}")
+                Text("자기계: ${currentSensorData.magnetometer.joinToString(", ")}")
+                Text("각속도: ${currentSensorData.angularVelocity.joinToString(", ")}")
+                Text("각도 (Pitch, Roll, Yaw): ${currentSensorData.angle.joinToString(", ")}")
                 Text("GPS: ${currentSensorData.gps}")
+
+                Button(
+                    onClick = { viewModel.cancelMeasurement() },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("측정 취소")
+                }
             }
             MeasurementStatus.COMPLETED -> {
                 TextField(
