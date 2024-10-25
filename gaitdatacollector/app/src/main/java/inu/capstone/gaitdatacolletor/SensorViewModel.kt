@@ -17,8 +17,6 @@ class SensorViewModel(private val repository: SensorRepository) : ViewModel() {
         listOf(0f, 0f, 0f),
         listOf(0f, 0f, 0f),
         listOf(0f, 0f, 0f),
-        listOf(0f, 0f, 0f),
-        listOf(0f, 0f, 0f),
         Pair(0.0, 0.0)
     ))
     val currentSensorData = _currentSensorData.asStateFlow()
@@ -30,7 +28,7 @@ class SensorViewModel(private val repository: SensorRepository) : ViewModel() {
     private var walkingState: String = ""
     private var measurementJob: Job? = null
 
-    fun startMeasurement(style: String, state: String) {
+    fun startMeasurement(style: String = "", state: String = "") {
         walkingStyle = style
         walkingState = state
         _measurementStatus.value = MeasurementStatus.MEASURING
@@ -38,7 +36,7 @@ class SensorViewModel(private val repository: SensorRepository) : ViewModel() {
         measurementJob = viewModelScope.launch {
             while (!measurementComplete.value) {
                 _currentSensorData.value = repository.getSensorData()
-                kotlinx.coroutines.delay(100) // 100ms 간격으로 업데이트
+                kotlinx.coroutines.delay(100)
             }
             _measurementStatus.value = MeasurementStatus.COMPLETED
         }
@@ -65,8 +63,6 @@ class SensorViewModel(private val repository: SensorRepository) : ViewModel() {
     fun resetMeasurement() {
         _measurementStatus.value = MeasurementStatus.WAITING
         _currentSensorData.value = SensorData(
-            listOf(0f, 0f, 0f),
-            listOf(0f, 0f, 0f),
             listOf(0f, 0f, 0f),
             listOf(0f, 0f, 0f),
             listOf(0f, 0f, 0f),

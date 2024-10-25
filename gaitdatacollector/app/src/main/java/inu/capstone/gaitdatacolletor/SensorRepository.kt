@@ -34,6 +34,7 @@ import kotlin.math.PI
  * 이 클래스는 가속도계, 자기계, GPS 센서의 데이터를 수집하고 처리하며, CSV 파일로 저장하는 기능을 제공합니다.
  * @param context 애플리케이션 컨텍스트
  */
+// SensorRepository.kt
 class SensorRepository(private val context: Context) {
     private val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
     private val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
@@ -41,14 +42,12 @@ class SensorRepository(private val context: Context) {
     private val _accelerometerData = MutableStateFlow(listOf(0f, 0f, 0f))
     private val _gyroscopeData = MutableStateFlow(listOf(0f, 0f, 0f))
     private val _magnetometerData = MutableStateFlow(listOf(0f, 0f, 0f))
-    private val _angularVelocityData = MutableStateFlow(listOf(0f, 0f, 0f))
-    private val _angleData = MutableStateFlow(listOf(0f, 0f, 0f)) // pitch, roll, yaw
     private val _gpsData = MutableStateFlow(Pair(0.0, 0.0))
 
     private val dataList = mutableListOf<List<String>>()
     private var isCollecting = false
     private var startTime: Long = 0
-    private var lastGyroscopeTimestamp: Long = 0
+    private var measurementStartTime: Long = 0  // 밀리초 단위로 시작 시간 저장
 
     private var lastKnownLocation: Location? = null
 
@@ -58,35 +57,21 @@ class SensorRepository(private val context: Context) {
     private val _measurementComplete = MutableStateFlow(false)
     val measurementComplete = _measurementComplete.asStateFlow()
 
-    private var pitch = 0.0
-    private var roll = 0.0
-    private var yaw = 0.0
-
     private val NS2S = 1.0f / 1000000000.0f
-    private val RAD2DEG = 180 / PI.toFloat()
 
     fun startDataCollection() {
         isCollecting = true
+        measurementStartTime = System.currentTimeMillis()  // 밀리초 단위로 시작 시간 기록
         startTime = System.nanoTime()
-        lastGyroscopeTimestamp = startTime
         dataList.clear()
-        dataList.add(listOf("Time", "AccX", "AccY", "AccZ", "GyroX", "GyroY", "GyroZ", "MagX", "MagY", "MagZ", "AngVelX", "AngVelY", "AngVelZ", "Pitch", "Roll", "Yaw", "Latitude", "Longitude"))
+        dataList.add(listOf("Time(s)", "AccX", "AccY", "AccZ", "GyroX", "GyroY", "GyroZ", "MagX", "MagY", "MagZ", "Latitude", "Longitude"))
         _allSensorData.value = emptyList()
         _measurementComplete.value = false
-        pitch = 0.0
-        roll = 0.0
-        yaw = 0.0
     }
 
     fun stopDataCollection() {
         isCollecting = false
         _measurementComplete.value = true
-    }
-
-    fun resetMeasurement() {
-        _allSensorData.value = emptyList()
-        _measurementComplete.value = false
-        dataList.clear()
     }
 
     fun saveDataToCSV(fileName: String) {
@@ -142,33 +127,11 @@ class SensorRepository(private val context: Context) {
         override fun onAccuracyChanged(sensor: Sensor, accuracy: Int) {}
     }
 
+
     private val gyroscopeListener = object : SensorEventListener {
         override fun onSensorChanged(event: SensorEvent) {
             val values = event.values.toList()
             _gyroscopeData.value = values
-
-            // 각속도 및 각도 계산
-            val currentTimestamp = event.timestamp
-            if (lastGyroscopeTimestamp != 0L) {
-                val dt = (currentTimestamp - lastGyroscopeTimestamp) * NS2S
-
-                val gyroX = event.values[0]
-                val gyroY = event.values[1]
-                val gyroZ = event.values[2]
-
-                pitch += gyroY * dt
-                roll += gyroX * dt
-                yaw += gyroZ * dt
-
-                _angleData.value = listOf(
-                    (pitch * RAD2DEG).toFloat(),
-                    (roll * RAD2DEG).toFloat(),
-                    (yaw * RAD2DEG).toFloat()
-                )
-
-                _angularVelocityData.value = listOf(gyroX, gyroY, gyroZ)
-            }
-            lastGyroscopeTimestamp = currentTimestamp
         }
         override fun onAccuracyChanged(sensor: Sensor, accuracy: Int) {}
     }
@@ -236,27 +199,19 @@ class SensorRepository(private val context: Context) {
         startDataCollection()
     }
 
-    fun stopMeasurement() {
-        sensorManager.unregisterListener(accelerometerListener)
-        sensorManager.unregisterListener(gyroscopeListener)
-        sensorManager.unregisterListener(magnetometerListener)
-        locationManager.removeUpdates(locationListener)
-        stopDataCollection()
-    }
-
     private fun updateSensorData() {
-        val currentTime = (System.nanoTime() - startTime) * NS2S
+        val currentTimeMillis = System.currentTimeMillis()
+        val elapsedSeconds = (currentTimeMillis - measurementStartTime) / 1000.0  // 초 단위로 변환
+
         val currentSensorData = SensorData(
             _accelerometerData.value,
             _gyroscopeData.value,
             _magnetometerData.value,
-            _angularVelocityData.value,
-            _angleData.value,
             _gpsData.value
         )
         _allSensorData.value += currentSensorData
         val data = listOf(
-            currentTime.toString(),
+            String.format("%.3f", elapsedSeconds),  // 소수점 3자리까지 표시
             _accelerometerData.value[0].toString(),
             _accelerometerData.value[1].toString(),
             _accelerometerData.value[2].toString(),
@@ -266,20 +221,24 @@ class SensorRepository(private val context: Context) {
             _magnetometerData.value[0].toString(),
             _magnetometerData.value[1].toString(),
             _magnetometerData.value[2].toString(),
-            _angularVelocityData.value[0].toString(),
-            _angularVelocityData.value[1].toString(),
-            _angularVelocityData.value[2].toString(),
-            _angleData.value[0].toString(),
-            _angleData.value[1].toString(),
-            _angleData.value[2].toString(),
             _gpsData.value.first.toString(),
             _gpsData.value.second.toString()
         )
         dataList.add(data)
+    }
 
-        if (currentTime >= 30f) { // 30 seconds
-            stopDataCollection()
-        }
+    fun stopMeasurement() {
+        sensorManager.unregisterListener(accelerometerListener)
+        sensorManager.unregisterListener(gyroscopeListener)
+        sensorManager.unregisterListener(magnetometerListener)
+        locationManager.removeUpdates(locationListener)
+        stopDataCollection()
+    }
+
+    fun resetMeasurement() {
+        _allSensorData.value = emptyList()
+        _measurementComplete.value = false
+        dataList.clear()
     }
 
     fun getSensorData(): SensorData {
@@ -287,8 +246,6 @@ class SensorRepository(private val context: Context) {
             _accelerometerData.value,
             _gyroscopeData.value,
             _magnetometerData.value,
-            _angularVelocityData.value,
-            _angleData.value,
             _gpsData.value
         )
     }
@@ -297,12 +254,9 @@ class SensorRepository(private val context: Context) {
 
 
 data class SensorData(
-
     val accelerometer: List<Float> = listOf(0f, 0f, 0f),
     val gyroscope: List<Float> = listOf(0f, 0f, 0f),
     val magnetometer: List<Float> = listOf(0f, 0f, 0f),
-    val angularVelocity: List<Float> = listOf(0f, 0f, 0f),
-    val angle: List<Float> = listOf(0f, 0f, 0f),
     val gps: Pair<Double, Double>
 )
 
