@@ -7,6 +7,7 @@ import android.os.Vibrator
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
@@ -45,6 +46,9 @@ fun SensorDataScreen(viewModel: SensorViewModel) {
     val currentSensorData by viewModel.currentSensorData.collectAsState()
     val measurementStatus by viewModel.measurementStatus.collectAsState()
     val allSensorData by viewModel.allSensorData.collectAsState()
+    val selectedId by viewModel.selectedId.collectAsState()
+    val selectedPosition by viewModel.selectedPosition.collectAsState()
+    val selectedDistance by viewModel.selectedDistance.collectAsState()
 
     val context = LocalContext.current
     val vibrator = remember { context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator }
@@ -68,14 +72,93 @@ fun SensorDataScreen(viewModel: SensorViewModel) {
                     "측정 대기 중",
                     style = MaterialTheme.typography.headlineMedium
                 )
-                Text(
-                    "볼륨 UP 버튼을 눌러 측정을 시작하세요",
-                    style = MaterialTheme.typography.bodyLarge
-                )
+
+                // ID 선택
+                Text("ID를 선택하세요", style = MaterialTheme.typography.bodyLarge)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    listOf("1", "2", "3").forEach { id ->
+                        Button(
+                            onClick = { viewModel.setId(id) },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (selectedId == id)
+                                    MaterialTheme.colorScheme.primary
+                                else
+                                    MaterialTheme.colorScheme.secondary
+                            )
+                        ) {
+                            Text("ID $id")
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Position 선택
+                Text("위치를 선택하세요", style = MaterialTheme.typography.bodyLarge)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    listOf("look", "pocket").forEach { position ->
+                        Button(
+                            onClick = { viewModel.setPosition(position) },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (selectedPosition == position)
+                                    MaterialTheme.colorScheme.primary
+                                else
+                                    MaterialTheme.colorScheme.secondary
+                            )
+                        ) {
+                            Text(position)
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // 거리 선택
+                Text("거리를 선택하세요", style = MaterialTheme.typography.bodyLarge)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    listOf("10M", "20M", "30M", "40M", "50M").forEach { distance ->
+                        Button(
+                            onClick = { viewModel.setDistance(distance) },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (selectedDistance == distance)
+                                    MaterialTheme.colorScheme.primary
+                                else
+                                    MaterialTheme.colorScheme.secondary
+                            ),
+                            modifier = Modifier
+                                .weight(1f),
+                            contentPadding = PaddingValues(0.dp)
+                        ) {
+                            Text(distance)
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                if (selectedId != null && selectedPosition != null && selectedDistance != null) {
+                    Text(
+                        "선택된 정보: ID ${selectedId}, ${selectedPosition}, ${selectedDistance}",
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    Text(
+                        "볼륨 UP 버튼을 눌러 측정을 시작하세요",
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                }
             }
             MeasurementStatus.MEASURING -> {
                 Text(
-                    "측정 중...",
+                    "ID ${selectedId}, ${selectedPosition}, ${selectedDistance} 측정 중...",
                     style = MaterialTheme.typography.headlineMedium
                 )
                 Text(
@@ -90,7 +173,7 @@ fun SensorDataScreen(viewModel: SensorViewModel) {
             }
             MeasurementStatus.COMPLETED -> {
                 Text(
-                    "측정 완료",
+                    "ID ${selectedId}, ${selectedPosition}, ${selectedDistance} 측정 완료",
                     style = MaterialTheme.typography.headlineMedium
                 )
 
@@ -111,13 +194,15 @@ fun SensorDataScreen(viewModel: SensorViewModel) {
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    // 걸음 수 입력 TextField 추가
                     TextField(
                         value = stepCount,
                         onValueChange = { stepCount = it },
-                        label = { Text("걸음 수") },
+                        label = { Text("걸음 수를 입력하세요") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier.fillMaxWidth()
                     )
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceEvenly
@@ -127,8 +212,13 @@ fun SensorDataScreen(viewModel: SensorViewModel) {
                                 if (stepCount.isNotEmpty()) {
                                     viewModel.saveData(stepCount)
                                 }
+                                stepCount = ""
                             },
-                            modifier = Modifier.weight(1f).padding(end = 4.dp)
+                            modifier = Modifier.weight(1f).padding(end = 4.dp),
+                            enabled = selectedId != null &&
+                                    selectedPosition != null &&
+                                    selectedDistance != null &&
+                                    stepCount.isNotEmpty()
                         ) {
                             Text("저장하기")
                         }
@@ -138,7 +228,9 @@ fun SensorDataScreen(viewModel: SensorViewModel) {
                                 stepCount = ""
                             },
                             modifier = Modifier.weight(1f).padding(start = 4.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.secondary
+                            )
                         ) {
                             Text("다시 측정하기")
                         }

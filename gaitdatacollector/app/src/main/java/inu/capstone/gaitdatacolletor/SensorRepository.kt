@@ -75,8 +75,7 @@ class SensorRepository(private val context: Context) {
     }
 
     fun saveDataToCSV(fileName: String) {
-        val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
-        val fullFileName = "${fileName}_$timestamp.csv"
+        val fullFileName = "${fileName}.csv"
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             saveFileUsingMediaStore(fullFileName)
